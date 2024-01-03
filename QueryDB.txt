@@ -1,0 +1,105 @@
+// Câu 1: In ra danh sách các sản phẩm (PRO_ID, PRODUCT_NAME) không bán được của nước “Vietnam”
+
+from py2neo import Graph
+import pandas as pd
+import numpy as np
+
+data1 = cn1.run("MATCH (P:PRODUCT) \
+                WHERE NOT ( () - [:FK_B_DETAILS_PRO] ->(P)) AND P.COUNTRY = 'Vietnam' \
+                RETURN P.PRO_ID, P.PRODUCT_NAME").data()
+data2 = cn2.run("MATCH (P:PRODUCT) \
+                WHERE NOT ( () - [:FK_B_DETAILS_PRO] ->(P)) AND P.COUNTRY = 'Vietnam' \
+                RETURN P.PRO_ID, P.PRODUCT_NAME").data()
+d1 = pd.DataFrame(data1)
+d2 = pd.DataFrame(data2)
+df=[d1,d2]
+result = pd.concat(df, ignore_index=True)
+print(result.drop_duplicates())
+
+// Câu 2: Tìm sản phẩm được mua nhiều nhất
+
+from py2neo import Graph
+import pandas as pd
+import numpy as np
+
+cn1 = Graph(uri="bolt://192.168.2.27:7687",auth=("neo4j","12345678"))
+cn2 = Graph(uri="bolt://192.168.2.6:7687",auth=("neo4j","12345678"))
+data1 = cn1.run("MATCH (BD)-[:FK_B_DETAILS_PRO]->(P) "
+                "WITH P, SUM(BD.AMOUNT) AS SLMUA "
+                "WITH MAX(SLMUA) AS MAX "
+                "MATCH (BD)-[:FK_B_DETAILS_PRO]->(P) "
+                "WITH P, MAX, SUM(BD.AMOUNT) AS SL "
+                "WHERE SL = MAX "
+                "RETURN P.PRO_ID, P.PRODUCT_NAME, SL").data()
+data2 = cn2.run("MATCH (BD)-[:FK_B_DETAILS_PRO]->(P) "
+                "WITH P, SUM(BD.AMOUNT) AS SLMUA "
+                "WITH MAX(SLMUA) AS MAX "
+                "MATCH (BD)-[:FK_B_DETAILS_PRO]->(P) "
+                "WITH P, MAX, SUM(BD.AMOUNT) AS SL "
+                "WHERE SL = MAX "
+                "RETURN P.PRO_ID, P.PRODUCT_NAME, SL").data()
+d1=pd.DataFrame(data1)
+d2=pd.DataFrame(data2)
+df = pd.concat([d1,d2], ignore_index = True)
+dsort = df.sort_values('SL', ascending = False)
+result = dsort[dsort["SL"] == dsort['SL'].max()]
+print(result)
+
+//Câu 3: Lấy ra tất cả sản phẩm không bán được hàng
+
+from py2neo import Graph
+import pandas as pd
+import numpy as np
+
+cn1 = Graph(uri="bolt://192.168.2.27:7687",auth=("neo4j","12345678"))
+cn2 = Graph(uri="bolt://192.168.2.6:7687",auth=("neo4j","12345678"))
+data1 = cn1.run("MATCH (BD)-[:FK_B_DETAILS_PRO]->(P) "
+                "RETURN P.PRO_ID, P.PRODUCT_NAME, SUM(BD.AMOUNT) AS SL"
+                " ORDER BY SL DESC ").data()
+data2 = cn2.run("MATCH (BD)-[:FK_B_DETAILS_PRO]->(P) "
+                "RETURN P.PRO_ID, P.PRODUCT_NAME, SUM(BD.AMOUNT) AS SL"
+                " ORDER BY SL DESC ").data()
+d1=pd.DataFrame(data1)
+d2=pd.DataFrame(data2)
+df = pd.concat([d1,d2], ignore_index = True)
+result = df[df['SL'] == 0]
+print(result.drop_duplicates())
+
+//Câu 4: Tìm các sản phẩm bán được ở cả 2 chi nhánh
+
+from py2neo import Graph
+import pandas as pd
+import numpy as np
+
+cn1 = Graph(uri="bolt://192.168.2.27:7687",auth=("neo4j","12345678"))
+cn2 = Graph(uri="bolt://192.168.2.6:7687",auth=("neo4j","12345678"))
+data1 = cn1.run("MATCH (BD:BILL_DETAILS)-[:FK_B_DETAILS_PRO] ->(P:PRODUCT)"
+                "RETURN P.PRO_ID, P.PRODUCT_NAME").data()
+data2 = cn2.run("MATCH (BD:BILL_DETAILS)-[:FK_B_DETAILS_PRO] ->(P:PRODUCT)"
+                "RETURN P.PRO_ID, P.PRODUCT_NAME").data()
+d1=pd.DataFrame(data1)
+d2=pd.DataFrame(data2)
+df = [d1,d2]
+result = pd.merge(d1,d2, on = ["P.PRO_ID", "P.PRODUCT_NAME"], how = "inner")
+print(result.drop_duplicates())
+
+//Câu 5: Nhập vào mã nhân viên, cho biết nhân viên đó làm việc tại chi nhánh nào (tính trong suốt)
+
+from py2neo import Graph
+
+cn1 = Graph(uri="bolt://192.168.2.27:7687", auth=("neo4j", "12345678"))
+cn2 = Graph(uri="bolt://192.168.2.6:7687", auth=("neo4j", "12345678"))
+
+print("Nhập mã nhân viên cần tìm:")
+eID = input()
+
+cypher_text = f"MATCH (E:EMPLOYEE) WHERE E.EMP_ID = {eID} RETURN E"
+employee1 = cn1.run(cypher_text).data()
+employee2 = cn2.run(cypher_text).data()
+
+if employee1:
+    print(f"Nhân viên có mã {eID} làm việc tại CN1")
+elif employee2:
+    print(f"Nhân viên có mã {eID} làm việc tại CN2")
+else:
+    print(f"Không tìm thấy nhân viên có mã {eID}")
